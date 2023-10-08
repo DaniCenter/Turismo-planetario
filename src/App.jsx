@@ -1,9 +1,12 @@
-import Game2D from './components/Game2D'
+import Game2D from "./components/Game2D";
+import { Navbar } from "./components/Navar";
 
 function App() {
   return (
-      <Game2D/>
-    )
+    <>
+      <Game2D />
+    </>
+  );
 }
 
-export default App
+export default App;
