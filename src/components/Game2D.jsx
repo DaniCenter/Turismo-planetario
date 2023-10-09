@@ -20,7 +20,6 @@ import { Physics, usePlane, useBox, useSphere } from "@react-three/cannon";
 import { useRef, useEffect, useState, useContext, createContext } from "react";
 import { PlanetContext } from "./PlanetContext";
 import "../styles/Game2D.css";
-
 function useKeyboardControls() {
   const [movement, setMovement] = useState({
     forward: false,
@@ -75,7 +74,7 @@ function Planet({ modelPath, mass, size, position, boxSize }) {
   const material = new MeshBasicMaterial({ color: 0x00ff00, wireframe: true });
   const collisionSphereMesh = new Mesh(geometry, material);
   collisionSphereMesh.position.set(position[0], position[1], position[2]);
-  scene.add(collisionSphereMesh);
+  // scene.add(collisionSphereMesh);
   model.scale.set(size, size, size);
   const [ref, api] = useSphere(() => ({
     mass: mass,
@@ -87,18 +86,8 @@ function Planet({ modelPath, mass, size, position, boxSize }) {
   const planetSphere = new Sphere();
   planetBox.getBoundingSphere(planetSphere);
   planetSphere.radius = boxSize + 30;
-  // const geometry2 = new SphereGeometry(planetSphere.radius, 32, 32);
-  // const material2 = new MeshBasicMaterial({ color: 0xff0000, wireframe: true });
-  // const collisionSphereMesh2 = new Mesh(geometry2, material2);
-  // collisionSphereMesh2.position.copy(planetSphere.center);
-  // scene.add(collisionSphereMesh2);
 
-  return (
-    <PlanetContext.Provider value={{ planetSphere }}>
-      <primitive object={model} ref={ref} />
-      <Rocket />
-    </PlanetContext.Provider>
-  );
+  return <primitive object={model} ref={ref} />;
 }
 
 function Rocket() {
@@ -111,7 +100,7 @@ function Rocket() {
   const currentDirection = useRef(new Vector3(0, 0, -1));
   const totalRotation = useRef(0);
   const { camera, scene } = useThree();
-  const { planetSphere } = useContext(PlanetContext);
+  // const { planetSphere } = useContext(PlanetContext);
   // // Calcula la caja de colisión del cohete
   // const size = box.getSize(new Vector3());
   // const geometry = new BoxGeometry(size.x, size.y, size.z);
@@ -120,9 +109,24 @@ function Rocket() {
   // collisionBoxMesh.position.copy(box.getCenter(new Vector3()));
   // scene.add(collisionBoxMesh);
 
-  camera.far = 2000;
+  camera.far = 1500;
   camera.updateProjectionMatrix();
   useFrame((state, delta) => {
+    // let newPosition = new Vector3(ref.current.position.x, ref.current.position.y, ref.current.position.z);
+
+    // // Comprueba si hay una colisión en la nueva posición
+    // const collision = box.intersectsSphere(planetSphere);
+
+    // // Solo mueve el objeto Rocket si hay una colisión
+    // console.log(collision);
+    // if (collision) {
+    //   api.position.set(newPosition.x, newPosition.y, newPosition.z);
+    // } else {
+    //   api.position.subscribe((position) => {
+    //     newPosition = new Vector3(position[0], position[1], position[2]);
+    //   });
+    // }
+
     let velocity = new Vector3(0, 0, 0);
     if (keyboardControls.forward) {
       velocity.add(currentDirection.current.clone().multiplyScalar(100));
@@ -142,18 +146,17 @@ function Rocket() {
       api.rotation.copy(ref.current.rotation);
     }
     api.position.subscribe((state) => {
-      const cameraOffset = new Vector3(0, 70, 100);
+      const cameraOffset = new Vector3(0, 20, 100);
       cameraOffset.applyAxisAngle(new Vector3(0, 1, 0), totalRotation.current);
       camera.position.x = state[0] + cameraOffset.x;
       camera.position.y = state[1] + cameraOffset.y;
       camera.position.z = state[2] + cameraOffset.z;
       camera.lookAt(state[0], state[1], state[2]);
     });
-    if (box.intersectsSphere(planetSphere)) {
-      console.log("¡Colisión detectada!");
-    }
+    // if (box.intersectsSphere(planetSphere)) {
+    //   console.log("¡Colisión detectada!");
+    // }
   });
-
   return <primitive object={gltf.scene} ref={ref} />;
 }
 
@@ -196,14 +199,35 @@ function InvisibleFloor() {
   );
 }
 
+function SolarSystem() {
+  const planetsData = [
+    { modelPath: "/models/tierra.glb", mass: 0, size: 120, position: [500, 0, 500], boxSize: 250 },
+    { modelPath: "/models/jupiter.glb", mass: 0, size: 120, position: [-700, 0, 1000], boxSize: 250 },
+    { modelPath: "/models/marte.glb", mass: 0, size: 120, position: [-1200, 0, 200], boxSize: 100 },
+    { modelPath: "/models/mercurio.glb", mass: 0, size: 120, position: [-700, 0, -500], boxSize: 250 },
+    { modelPath: "/models/neptuno.glb", mass: 0, size: 120, position: [0, 0, -1000], boxSize: 250 },
+    { modelPath: "/models/saturno.gltf", mass: 0, size: 120, position: [1500, 0, -100], boxSize: 250 },
+    { modelPath: "/models/venus.glb", mass: 0, size: 120, position: [800, 0, -900], boxSize: 250 },
+  ];
+
+  return (
+    <PlanetContext.Provider value={planetsData}>
+      {planetsData.map((planetData, index) => (
+        <Planet key={index} {...planetData} />
+      ))}
+      <Rocket />
+    </PlanetContext.Provider>
+  );
+}
+
 export default function Game2D() {
   return (
     <div id="canvas">
       <Canvas style={{ background: "black" }}>
         <ambientLight intensity={1} />
         <Stars />
-        <Physics>
-          <Planet modelPath="/models/tierra.glb" mass={0} size={120} position={[500, 100, 0]} boxSize={250} />
+        <Physics gravity={[0, -10, 0]}>
+          <SolarSystem />
           <InvisibleFloor />
         </Physics>
       </Canvas>
