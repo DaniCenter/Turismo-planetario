@@ -13,10 +13,12 @@ import {
   MeshBasicMaterial,
   Mesh,
   SphereGeometry,
+  Sphere,
 } from "three";
 import { OrbitControls, CameraControls } from "@react-three/drei";
 import { Physics, usePlane, useBox, useSphere } from "@react-three/cannon";
 import { useRef, useEffect, useState, useContext, createContext } from "react";
+import { PlanetContext } from "./PlanetContext";
 import "../styles/Game2D.css";
 
 function useKeyboardControls() {
@@ -68,14 +70,12 @@ function Planet({ modelPath, mass, size, position, boxSize }) {
   const gltf = useLoader(GLTFLoader, modelPath);
   const model = gltf.scene.clone(); // Clona el modelo
   const radioActual = model.position.set(position[0], position[1], position[2]);
-  // Calcula la esfera de colisión del planeta
   const { scene } = useThree();
   const geometry = new SphereGeometry(boxSize, 32, 32);
   const material = new MeshBasicMaterial({ color: 0x00ff00, wireframe: true });
   const collisionSphereMesh = new Mesh(geometry, material);
   collisionSphereMesh.position.set(position[0], position[1], position[2]);
   scene.add(collisionSphereMesh);
-  console.log(model.scale);
   model.scale.set(size, size, size);
   const [ref, api] = useSphere(() => ({
     mass: mass,
@@ -83,7 +83,22 @@ function Planet({ modelPath, mass, size, position, boxSize }) {
     args: [boxSize],
   }));
 
-  return <primitive object={model} ref={ref} />;
+  const planetBox = new Box3().setFromObject(model);
+  const planetSphere = new Sphere();
+  planetBox.getBoundingSphere(planetSphere);
+  planetSphere.radius = boxSize + 30;
+  // const geometry2 = new SphereGeometry(planetSphere.radius, 32, 32);
+  // const material2 = new MeshBasicMaterial({ color: 0xff0000, wireframe: true });
+  // const collisionSphereMesh2 = new Mesh(geometry2, material2);
+  // collisionSphereMesh2.position.copy(planetSphere.center);
+  // scene.add(collisionSphereMesh2);
+
+  return (
+    <PlanetContext.Provider value={{ planetSphere }}>
+      <primitive object={model} ref={ref} />
+      <Rocket />
+    </PlanetContext.Provider>
+  );
 }
 
 function Rocket() {
@@ -91,12 +106,12 @@ function Rocket() {
   gltf.scene.scale.set(0.5, 0.5, 0.5);
   const box = new Box3().setFromObject(gltf.scene);
   const height = box.max.y - box.min.y;
-  const [ref, api] = useBox(() => ({ mass: 1000, position: [0, height / 2, 0] }));
+  const [ref, api] = useBox(() => ({ mass: 1, position: [1, height / 2, 0] }));
   const keyboardControls = useKeyboardControls();
   const currentDirection = useRef(new Vector3(0, 0, -1));
   const totalRotation = useRef(0);
   const { camera, scene } = useThree();
-
+  const { planetSphere } = useContext(PlanetContext);
   // // Calcula la caja de colisión del cohete
   // const size = box.getSize(new Vector3());
   // const geometry = new BoxGeometry(size.x, size.y, size.z);
@@ -134,20 +149,12 @@ function Rocket() {
       camera.position.z = state[2] + cameraOffset.z;
       camera.lookAt(state[0], state[1], state[2]);
     });
+    if (box.intersectsSphere(planetSphere)) {
+      console.log("¡Colisión detectada!");
+    }
   });
-  return <primitive object={gltf.scene} ref={ref} />;
-}
 
-function InvisibleFloor() {
-  const [ref] = usePlane(() => ({
-    rotation: [-Math.PI / 2, 0, 0],
-  }));
-  return (
-    <mesh ref={ref} receiveShadow>
-      <planeGeometry attach="geometry" args={[100, 100]} />
-      <meshPhongMaterial attach="material" transparent opacity={0} />
-    </mesh>
-  );
+  return <primitive object={gltf.scene} ref={ref} />;
 }
 
 function Stars() {
@@ -180,6 +187,15 @@ function Stars() {
   return null;
 }
 
+function InvisibleFloor() {
+  return (
+    <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -1, 0]}>
+      <planeGeometry attach="geometry" args={[10000, 10000]} />
+      <meshPhysicalMaterial attach="material" transparent opacity={0} />
+    </mesh>
+  );
+}
+
 export default function Game2D() {
   return (
     <div id="canvas">
@@ -187,8 +203,7 @@ export default function Game2D() {
         <ambientLight intensity={1} />
         <Stars />
         <Physics>
-          <Planet modelPath="/models/tierra.glb" mass={0} size={120} position={[500, 0, 0]} boxSize={270} />
-          <Rocket />
+          <Planet modelPath="/models/tierra.glb" mass={0} size={120} position={[500, 100, 0]} boxSize={250} />
           <InvisibleFloor />
         </Physics>
       </Canvas>
